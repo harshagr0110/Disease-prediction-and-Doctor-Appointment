@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+.no-scrollbar {
+  -ms-overflow-style: none;  
+  scrollbar-width: none;    
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;             
+}
+
+@keyframes subtleBounce {
+  0% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+.subtle-bounce {
+  animation: subtleBounce 0.5s ease;
+}
