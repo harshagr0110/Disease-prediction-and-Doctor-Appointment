@@ -1,78 +1,118 @@
-import validator from "validator";
-import bcrypt from "bcrypt";
-import {v2 as cloudinary} from "cloudinary";
-import doctormodel from "../models/doctorModel.js";
-import jwt from "jsonwebtoken";
+import validator from 'validator';
+import bcrypt from 'bcrypt';
+import { v2 as cloudinary } from 'cloudinary';
+import doctormodel from '../models/doctorModel.js';
+import jwt from 'jsonwebtoken';
 
 const addDoctor = async (req, res) => {
-    try{
-        const {fullname ,email,password,speciality,degree,experience,about,fees,address} = req.body;
-        const imageFile = req.file;
 
-        if(!fullname || !email || !password || !speciality || !degree || !experience || !about || !fees || !address){
-            return res.status(400).json({error:"All fields are required"});
-        }
 
-        if(!validator.isEmail(email)){
-            return res.status(400).json({error:"Invalid email"});
-        }
+  try {
+    const {
+      fullName,
+      email,
+      password,
+      speciality,
+      degree,
+      experience,
+      about,
+      fees,
+      address,
+      available,
+    } = req.body;
 
-        if(password.length < 8){
-            return res.status(400).json({error:"Password must be at least 8 characters"});
-        }
-
-        const salt=await bcrypt.genSalt(10);
-        const hashedPassword=await bcrypt.hash(password,salt);
-
-        const imageUpload=await cloudinary.uploader.upload(imageFile.path,{resource_type:"image"});
-        const imageUrl=imageUpload.secure_url;
-
-        const doctorData={
-            fullname,
-            email,
-            password:hashedPassword,
-            speciality,
-            degree,
-            experience,
-            about,
-            fees,
-            address,
-            image:imageUrl,
-            date:Date.now()
-        }
-        const newDoctor=new doctormodel(doctorData);
-        const savedDoctor=await newDoctor.save();
-        res.status(201).json({doctor:savedDoctor});
-
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Image is required' });
     }
-    catch(error){
-        console.log(error);
+
+    // All fields required
+    if (
+      !fullName ||
+      !email ||
+      !password ||
+      !speciality ||
+      !degree ||
+      typeof experience === 'undefined' ||
+      !about ||
+      typeof fees === 'undefined' ||
+      !address ||
+      typeof available === 'undefined'
+    ) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
     }
-}
 
-const adminLogin=async(req,res)=>{
-    try{
-        const {email,password}=req.body;
-        if(email===process.env.ADMIN_EMAIL && password===process.env.ADMIN_PASSWORD){
-            const token=jwt.sign(email+password,process.env.JWT_SECRET);
-            res.json({
-                success:true,
-                message:"Admin logged in successfully",
-                token
-            })
-        }else{
-            res.status(400).json({message:"Invalid credentials"});
-        }
-
-    }catch(error){
-        console.log(error);
-        res.status(500).json({
-            success:false,
-            message:"Internal server error"});
-
-        
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email' });
     }
+
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+// ✅ Upload the file from local temp path to Cloudinary
+const cloudinaryUpload = await cloudinary.uploader.upload(req.file.path, {
+  folder: 'doctors', // Optional: create a folder in Cloudinary
+  resource_type: 'image',
+});
+
+// ✅ This is the Cloudinary image URL you’ll save in DB
+const imageUrl = cloudinaryUpload.secure_url;
+
+
+    const doctorData = {
+      fullName,
+      email,
+      password: hashedPassword,
+      speciality,
+      degree,
+      experience,
+      about,
+      fees,
+      address,
+      available,
+      image: imageUrl,
+      date: Date.now(),
+    };
+
+    const newDoctor = new doctormodel(doctorData);
+    const savedDoctor = await newDoctor.save();
+
+    return res.status(201).json({ success: true, doctor: savedDoctor });
+  } catch (error) {
+    console.error('Error adding doctor:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
 };
 
+const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-export {addDoctor,adminLogin}
+    if (
+      email === process.env.ADMIN_EMAIL &&
+      password === process.env.ADMIN_PASSWORD
+    ) {
+      const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '4h' });
+      return res.json({ success: true, message: 'Admin logged in', token });
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+  } catch (err) {
+    console.error('adminLogin error:', err);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+const allDoctors=async(req,res)=>{
+  try {
+    const doctors=await doctormodel.find({}).select('-password');
+    return res.status(200).json({success:true,doctors});
+  } catch (error) {
+    return res.status(500).json({success:false,message:error.message});
+  }
+}
+
+export { addDoctor, adminLogin,allDoctors };
