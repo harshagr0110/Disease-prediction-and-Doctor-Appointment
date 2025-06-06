@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { doctors as allDoctors, specialityData } from '../assets/assets';
+import {  specialityData } from '../assets/assets';
+import { useContext } from 'react';
+import { AppContext } from '../context/AppContext';
 
 const Doctors = () => {
   const Navigate = useNavigate();
+  const {doctors}=useContext(AppContext);
   // Grab the optional “:speciality” param from the URL
   const { speciality: initialSpeciality } = useParams();
 
@@ -33,10 +36,10 @@ const Doctors = () => {
   // Recompute filteredDoctors whenever selectedSpecs changes
   useEffect(() => {
     if (selectedSpecs.length === 0) {
-      setFilteredDoctors(allDoctors);
+      setFilteredDoctors(doctors);
     } else {
       setFilteredDoctors(
-        allDoctors.filter((doc) =>
+        doctors.filter((doc) =>
           selectedSpecs.includes(doc.speciality)
         )
       );

@@ -25,7 +25,7 @@ const Navbar = () => {
   const handleProfileMenu = (open) => setProfileMenu(open);
 
   return (
-    <nav className="w-full bg-white shadow-md my-0.5 left-0 z-50 fixed top-0 mb-3">
+    <nav className="w-full bg-white shadow-md my-0.5 left-0 z-50 fixed top-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         {/* Logo */}
         <div className="flex-shrink-0 flex items-center">
