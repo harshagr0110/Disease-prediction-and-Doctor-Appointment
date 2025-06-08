@@ -1,6 +1,6 @@
-// src/pages/Login.jsx
 import React, { useState, useContext, useEffect } from "react";
 import axios from "axios";
+import { toast } from 'react-toastify';
 import { AppContext } from "../context/AppContext";
 import { useNavigate } from "react-router-dom";
 
@@ -8,7 +8,7 @@ const Login = () => {
   const [isRegister, setIsRegister] = useState(false);
   const [form, setForm] = useState({ email: "", fullName: "", password: "" });
 
-  const { backendurl, token, setToken,userId, setUserId } = useContext(AppContext);
+  const { backendurl, token, setToken, setUserId } = useContext(AppContext);
   const navigate = useNavigate();
 
   // Redirect on successful login/register
@@ -19,7 +19,7 @@ const Login = () => {
   }, [token, navigate]);
 
   const handleChange = (e) => {
-    setForm((f) => ({ ...f, [e.target.fullName]: e.target.value }));
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
@@ -27,7 +27,6 @@ const Login = () => {
     const endpoint = isRegister ? "register" : "login";
     const url = `${backendurl}/api/user/${endpoint}`;
 
-    // Build payload
     const payload = isRegister
       ? { email: form.email, fullName: form.fullName, password: form.password }
       : { email: form.email, password: form.password };
@@ -47,7 +46,6 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Auth Error:", err);
-      // Safely read error message
       const msg =
         err?.response?.data?.message ||
         err?.message ||
@@ -66,7 +64,7 @@ const Login = () => {
           <label className="block mb-1 font-medium">Email</label>
           <input
             type="email"
-            fullName="email"
+            name="email"
             value={form.email}
             onChange={handleChange}
             required
@@ -76,10 +74,10 @@ const Login = () => {
 
         {isRegister && (
           <div className="mb-4">
-            <label className="block mb-1 font-medium">fullName</label>
+            <label className="block mb-1 font-medium">Full Name</label>
             <input
               type="text"
-              fullName="fullName"
+              name="fullName"
               value={form.fullName}
               onChange={handleChange}
               required
@@ -92,7 +90,7 @@ const Login = () => {
           <label className="block mb-1 font-medium">Password</label>
           <input
             type="password"
-            fullName="password"
+            name="password"
             value={form.password}
             onChange={handleChange}
             required
@@ -110,22 +108,14 @@ const Login = () => {
 
       <div className="text-center mt-4">
         {isRegister ? (
-          <>
-            <span className="text-gray-600">Already have an account? </span>
-            <button
-              onClick={() => setIsRegister(false)}
-              className="text-blue-600 hover:underline ml-1"
-            >
+          <> Already have an account?{' '}
+            <button onClick={() => setIsRegister(false)} className="text-blue-600 hover:underline">
               Login
             </button>
           </>
         ) : (
-          <>
-            <span className="text-gray-600">New user? </span>
-            <button
-              onClick={() => setIsRegister(true)}
-              className="text-blue-600 hover:underline ml-1"
-            >
+          <> New user?{' '}
+            <button onClick={() => setIsRegister(true)} className="text-blue-600 hover:underline">
               Register
             </button>
           </>

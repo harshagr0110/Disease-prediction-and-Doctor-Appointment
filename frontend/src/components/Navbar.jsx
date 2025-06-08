@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { assets } from '../assets/assets';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { AppContext } from '../context/AppContext';
+import { Menu, X } from 'lucide-react';
 
 const Navbar = () => {
-  const [token, setToken] = useState(true); // Replace with real auth check later
+  const { token, setToken, setUserId } = useContext(AppContext);
   const [profileMenu, setProfileMenu] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    setToken(false);
+    setToken('');
+    setUserId('');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     setProfileMenu(false);
-    // Optionally clear localStorage or cookies
+    navigate('/login');
   };
 
   const navLinks = [
@@ -21,19 +26,15 @@ const Navbar = () => {
     { name: 'Contact', to: '/contact' },
   ];
 
-  // Handle profile menu for accessibility and mobile
-  const handleProfileMenu = (open) => setProfileMenu(open);
-
   return (
-    <nav className="w-full bg-white shadow-md my-0.5 left-0 z-50 fixed top-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        {/* Logo */}
-        <div className="flex-shrink-0 flex items-center">
-          <img src={assets.logo} alt="Logo" className="h-10 w-auto" />
+    <nav className="w-full bg-white shadow-md fixed top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
+        <div className="flex items-center">
+          <img src={assets.logo} alt="Logo" className="h-10" />
         </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex space-x-8 items-center">
+        {/* Desktop Links */}
+        <div className="hidden md:flex space-x-8">
           {navLinks.map(link => (
             <NavLink
               key={link.name}
@@ -41,7 +42,7 @@ const Navbar = () => {
               className={({ isActive }) =>
                 `px-3 py-2 rounded-md text-lg font-medium transition duration-200 ${
                   isActive
-                    ? 'text-blue-700 bg-blue-100 font-semibold shadow-sm'
+                    ? 'text-blue-700 bg-blue-100'
                     : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'
                 }`
               }
@@ -52,12 +53,12 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* Right Side Auth/Profile */}
+        {/* Auth Buttons / Profile */}
         <div className="hidden md:flex items-center space-x-4">
           {!token ? (
             <button
               onClick={() => navigate('/login')}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-semibold"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
               Create Account
             </button>
@@ -67,38 +68,17 @@ const Navbar = () => {
                 src={assets.profile_pic || 'https://i.pravatar.cc/40'}
                 alt="Profile"
                 className="h-10 w-10 rounded-full cursor-pointer border-2 border-blue-600"
-                onClick={() => handleProfileMenu(!profileMenu)}
-                onMouseEnter={() => handleProfileMenu(true)}
-                onMouseLeave={() => handleProfileMenu(false)}
+                onClick={() => setProfileMenu(o => !o)}
               />
               {profileMenu && (
-                <div
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-2 z-50"
-                  onMouseEnter={() => handleProfileMenu(true)}
-                  onMouseLeave={() => handleProfileMenu(false)}
-                >
-                  <button
-                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    onClick={() => {
-                      handleProfileMenu(false);
-                      navigate('/my-profile');
-                    }}
-                  >
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-2">
+                  <button onClick={() => navigate('/my-profile')} className="block w-full px-4 py-2 text-left hover:bg-gray-100">
                     My Profile
                   </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    onClick={() => {
-                      handleProfileMenu(false);
-                      navigate('/my-appointments');
-                    }}
-                  >
+                  <button onClick={() => navigate('/my-appointments')} className="block w-full px-4 py-2 text-left hover:bg-gray-100">
                     My Appointments
                   </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
-                    onClick={handleLogout}
-                  >
+                  <button onClick={handleLogout} className="block w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100">
                     Logout
                   </button>
                 </div>
@@ -107,106 +87,64 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile Hamburger Icon */}
-        <div className="md:hidden flex items-center">
-          <button
-            onClick={() => setSidebar(true)}
-            className="text-gray-700 hover:text-blue-600 focus:outline-none"
-            aria-label="Open menu"
-          >
-            <svg className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+        {/* Mobile Hamburger */}
+        <div className="md:hidden">
+          <button onClick={() => setSidebar(true)} aria-label="Open menu">
+            <Menu className="w-6 h-6" />
           </button>
         </div>
       </div>
 
       {/* Mobile Sidebar */}
       {sidebar && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 bg-black opacity-40"
-            onClick={() => setSidebar(false)}
-          ></div>
-
-          {/* Sidebar Panel */}
-          <div className="relative bg-white w-64 h-full shadow-lg flex flex-col p-6 space-y-6 transition-transform duration-300 ease-in-out transform translate-x-0">
-            <button
-              className="absolute top-4 right-4 text-gray-700"
-              onClick={() => setSidebar(false)}
-              aria-label="Close menu"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <img src={assets.logo} alt="Logo" className="h-10 w-auto mb-6" />
-
-            <div className="flex flex-col space-y-4">
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40" onClick={() => setSidebar(false)}>
+          <div className="bg-white w-64 h-full p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <img src={assets.logo} alt="Logo" className="h-10" />
+              <button onClick={() => setSidebar(false)} aria-label="Close menu">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <nav className="flex flex-col space-y-4">
               {navLinks.map(link => (
                 <NavLink
                   key={link.name}
                   to={link.to}
+                  onClick={() => setSidebar(false)}
                   className={({ isActive }) =>
                     `px-3 py-2 rounded-md text-base font-medium transition duration-200 ${
-                      isActive
-                        ? 'text-blue-700 bg-blue-100 font-semibold'
-                        : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'
+                      isActive ? 'text-blue-700 bg-blue-100' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-100'
                     }`
                   }
-                  onClick={() => setSidebar(false)}
                   end
                 >
                   {link.name}
                 </NavLink>
               ))}
-            </div>
-
-            <div className="mt-auto">
               {!token ? (
                 <button
                   onClick={() => {
-                    setSidebar(false);
                     navigate('/login');
+                    setSidebar(false);
                   }}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-semibold"
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                 >
                   Create Account
                 </button>
               ) : (
-                <div className="flex flex-col space-y-2">
-                  <button
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded text-left"
-                    onClick={() => {
-                      setSidebar(false);
-                      navigate('/my-profile');
-                    }}
-                  >
+                <>
+                  <button onClick={() => { navigate('/my-profile'); setSidebar(false); }} className="text-left px-4 py-2 hover:bg-gray-100">
                     My Profile
                   </button>
-                  <button
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded text-left"
-                    onClick={() => {
-                      setSidebar(false);
-                      navigate('/my-appointments');
-                    }}
-                  >
+                  <button onClick={() => { navigate('/my-appointments'); setSidebar(false); }} className="text-left px-4 py-2 hover:bg-gray-100">
                     My Appointments
                   </button>
-                  <button
-                    className="px-4 py-2 text-red-600 hover:bg-gray-100 rounded text-left"
-                    onClick={() => {
-                      setSidebar(false);
-                      handleLogout();
-                    }}
-                  >
+                  <button onClick={() => { handleLogout(); setSidebar(false); }} className="text-left px-4 py-2 text-red-600 hover:bg-gray-100">
                     Logout
                   </button>
-                </div>
+                </>
               )}
-            </div>
+            </nav>
           </div>
         </div>
       )}

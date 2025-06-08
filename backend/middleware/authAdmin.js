@@ -2,17 +2,17 @@ import jwt from "jsonwebtoken";
 
 const adminAuth = (req, res, next) => {
   try {
-    let token = req.headers.authorization || req.headers.token;
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized: No token provided" });
+    let aToken = req.headers.authorization || req.headers.aToken;
+    if (!aToken) {
+      return res.status(401).json({ message: "Unauthorized: No aToken provided" });
     }
 
     // Remove "Bearer " prefix if present
-    if (token.startsWith("Bearer ")) {
-      token = token.slice(7).trim();
+    if (aToken.startsWith("Bearer ")) {
+      aToken = aToken.slice(7).trim();
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(aToken, process.env.JWT_SECRET);
     // Now decoded is an object { email: '...', iat: ..., exp: ... }
     if (decoded.email !== process.env.ADMIN_EMAIL) {
       return res.status(401).json({ message: "Unauthorized: Invalid token" });
