@@ -3,23 +3,28 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
-
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import axios from 'axios';
 const Appointment = () => {
   const daysofweek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const { docId } = useParams();
-  const { doctors } = useContext(AppContext);
+  const { doctors ,backendurl,token,getDoctorsData} = useContext(AppContext);
 
   const [docInfo, setDocInfo] = useState(null);
   const [docSlots, setDocSlots] = useState([]);      // flat array of { date: Date, time: "hh:mm AM/PM" }
   const [groupedSlots, setGroupedSlots] = useState({}); // { "2025-06-05": { label: "Thursday, Jun 5", slots: [...] } , ... }
   const [selectedSlot, setSelectedSlot] = useState(null); // { date: Date, time: string }
 
+  const navigate = useNavigate();
   // 1. Fetch doctor info once `doctors` is available
   useEffect(() => {
     if (doctors.length > 0) {
       const found = doctors.find(d => d._id === docId);
+      //console.log(found);
       setDocInfo(found || null);
     }
+   // console.log(docId);
   }, [doctors, docId]);
 
   // 2. Generate slots whenever docInfo becomes non-null
@@ -104,6 +109,45 @@ const Appointment = () => {
     
     return null;
   }
+
+  const bookAppointment = async () => {
+       if(!selectedSlot){
+        alert("Please select a slot");
+        return;
+       }
+       if(!token){
+        toast.error("Please login to book an appointment");
+        return navigate("/login");
+ 
+       }
+       try{
+        const date=selectedSlot.date;
+        const month=date.getMonth()+1;
+        const day=date.getDate();
+        const year=date.getFullYear();
+        const slotDate=day+"_"+month+"_"+year;
+        const userId=localStorage.getItem("userId");
+        const {data}=await axios.post(`${backendurl}/api/user/book-appointment`,{
+         userId, docId,slotDate,slotTime:selectedSlot.time
+        },{
+          headers:{Authorization:`Bearer ${token}`}
+        })
+        console.log(data);
+        if(data.success){
+          toast.success("Appointment Booked Successfully");
+          navigate("/my-appointments");
+        }
+        else{
+          toast.error(data.message);
+        }
+       }
+       catch(err){
+        console.log(err);
+       // console.log(err);
+        toast.error("ohh noo, something went wrong");
+       }
+  }
+
  
   return (
     <div className="max-w-5xl mx-auto px-6 py-12 mt-20">
@@ -115,7 +159,8 @@ const Appointment = () => {
           className="w-48 h-48 rounded-full object-cover object-top shadow-md border-4 border-blue-100"
         />
         <div className="flex-1 text-center md:text-left">
-          <h1 className="text-3xl font-bold text-gray-800">{docInfo.name}</h1>
+          
+          <h1 className="text-3xl font-bold text-gray-800">{docInfo.fullName}</h1>
           <p className="text-blue-600 text-lg font-medium">{docInfo.speciality}</p>
           <p className="text-gray-600 mt-2">
             {docInfo.degree} • {docInfo.experience}
@@ -209,9 +254,8 @@ const Appointment = () => {
             className="mt-4 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none transition"
             onClick={() => {
               // Replace this stub with your “confirm appointment” logic (API call, navigation, etc.)
-              alert(
-                `Appointment confirmed on ${selectedSlot.date.toLocaleDateString()} at ${selectedSlot.time}`
-              );
+              console.log('Confirming appointment...');
+              bookAppointment();
             }}
           >
             Confirm Appointment

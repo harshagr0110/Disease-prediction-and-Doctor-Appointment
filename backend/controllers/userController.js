@@ -3,6 +3,10 @@ import validator from "validator";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
+import doctormodel from "../models/doctorModel.js";
+import appointmentModel from "../models/appointmentModel.js";
+
+
 
 const createToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
@@ -128,3 +132,114 @@ export const updateProfile = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error while updating profile" });
   }
 };
+
+export const bookAppointment = async (req, res) => {
+  try {
+    const { userId, docId, slotDate, slotTime } = req.body;
+
+   // console.log("➡️ bookAppointment called with:", req.body);
+
+    const docDataRaw = await doctormodel.findById(docId).select('-password');
+    if (!docDataRaw) {
+     // console.log("❌ Doctor not found");
+      return res.status(404).json({ success: false, message: "Doctor not found" });
+    }
+
+    if (!docDataRaw.available) {
+    
+      console.log("⚠️ Doctor not available");
+      return res.status(400).json({ success: false, message: "Doctor is not available" });
+    }
+
+    let slots_booked = docDataRaw.slots_booked || {};
+    if (slots_booked[slotDate]) {
+      console.log("this dayyy");
+      if (slots_booked[slotDate].includes(slotTime)) {
+        console.log("⚠️ Slot already booked");
+       // toast.error("Slot is already booked");
+        return res.status(200).json({ success: false, message: "Slot is already booked" });
+      } else {
+        console.log("linewwwwww");
+        slots_booked[slotDate].push(slotTime);
+      }
+    } else {
+      slots_booked[slotDate] = [slotTime];
+    }
+    console.log("linewwwwww");
+    const userData = await User.findById(userId).select('-password');
+    if (!userData) {
+     // console.log("❌ User not found");
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const docData = docDataRaw.toObject();
+    delete docData.slots_booked;
+
+    const appointmentData = {
+      userId,
+      docId,
+      slotDate,
+      slotTime,
+      userData,
+      docData,
+      amount: docData.fees,
+      date: Date.now(),
+    };
+
+//    console.log("📝 Saving appointment:", appointmentData);
+
+    const newAppointment = new appointmentModel(appointmentData);
+    await newAppointment.save();
+
+   // console.log("✅ Appointment saved. Updating doctor slots...");
+    await doctormodel.findByIdAndUpdate(docId, { slots_booked });
+
+ //   console.log("✅ Doctor updated");
+ const doctordata=await doctormodel.findById(docId)
+    console.log(doctordata);
+    return res.status(200).json({ success: true, appointmentId: newAppointment._id });
+   
+  } catch (error) {
+   // console.error("🔥 ERROR in bookAppointment:", error);
+    return res.status(500).json({ success: false, message: "Server error while booking appointment" });
+  }
+};
+
+export const listAppointment = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const appointments = await appointmentModel.find({userId});
+    return res.status(200).json({ success: true, appointments });
+  } catch (error) {
+    console.error("🔥 ERROR in listAppointment:", error);
+    return res.status(500).json({ success: false, message: "Server error while listing appointments" });
+  }
+};
+
+export const cancelAppointment=async(req,res)=>{
+  try{
+    const {appointmentId}=req.body
+    const userId=req.user.id
+    const appointment=await appointmentModel.findById(appointmentId)
+    if(appointment.userId!==userId){
+      return res.status(401).json({success:false,message:"Unauthorized: Invalid token"});
+    }
+    else{
+      await appointmentModel.findByIdAndDelete(appointmentId,{cancelled:true})
+      const {docId,slotDate,slotTime}=appointment
+      const docdata=await doctormodel.findById(docId)
+      const slots_booked=docdata.slots_booked
+      if(slots_booked[slotDate]){
+        slots_booked[slotDate]=slots_booked[slotDate].filter((time)=>time!==slotTime)
+        await doctormodel.findByIdAndUpdate(docId,{slots_booked})
+      }
+      return res.status(200).json({success:true,message:"Appointment cancelled"})
+
+    }
+  }
+  catch(error){
+    console.error("🔥 ERROR in cancelAppointment:", error);
+    return res.status(500).json({ success: false, message: "Server error while cancelling appointment" });
+  }
+}
+   
