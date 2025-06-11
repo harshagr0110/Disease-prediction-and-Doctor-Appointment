@@ -4,6 +4,7 @@ import { addDoctor, adminLogin } from '../controllers/adminController.js';
 import adminAuth from '../middleware/authAdmin.js';
 import { allDoctors } from '../controllers/adminController.js';
 import { changeAvailability } from '../controllers/doctorController.js';
+import { dashboarddata } from '../controllers/adminController.js';
 
 const adminRouter = express.Router();
 
@@ -12,4 +13,5 @@ adminRouter.post('/add-doctor', adminAuth, upload.single('image'), addDoctor);
 adminRouter.post('/login', adminLogin);
 adminRouter.get('/all-doctors', adminAuth, allDoctors);
 adminRouter.post('/change-availability', adminAuth, changeAvailability);
+adminRouter.get('/dashboard', adminAuth, dashboarddata);
 export default adminRouter;

@@ -1,33 +1,33 @@
 // src/pages/Appointment.jsx
 
 import React, { useEffect, useState, useContext } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../context/AppContext';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { FaMapMarkerAlt, FaUserMd, FaGraduationCap, FaMoneyBillWave } from 'react-icons/fa';
+
 const Appointment = () => {
   const daysofweek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const { docId } = useParams();
-  const { doctors ,backendurl,token,getDoctorsData} = useContext(AppContext);
+  const { doctors, backendurl, token } = useContext(AppContext);
 
   const [docInfo, setDocInfo] = useState(null);
-  const [docSlots, setDocSlots] = useState([]);      // flat array of { date: Date, time: "hh:mm AM/PM" }
-  const [groupedSlots, setGroupedSlots] = useState({}); // { "2025-06-05": { label: "Thursday, Jun 5", slots: [...] } , ... }
-  const [selectedSlot, setSelectedSlot] = useState(null); // { date: Date, time: string }
+  const [docSlots, setDocSlots] = useState([]);
+  const [groupedSlots, setGroupedSlots] = useState({});
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
   const navigate = useNavigate();
-  // 1. Fetch doctor info once `doctors` is available
+
+  // Fetch doctor info
   useEffect(() => {
     if (doctors.length > 0) {
       const found = doctors.find(d => d._id === docId);
-      //console.log(found);
       setDocInfo(found || null);
     }
-   // console.log(docId);
   }, [doctors, docId]);
 
-  // 2. Generate slots whenever docInfo becomes non-null
+  // Generate slots
   useEffect(() => {
     if (!docInfo) return;
 
@@ -36,15 +36,12 @@ const Appointment = () => {
       const today = new Date();
 
       for (let i = 0; i < 7; i++) {
-        // Clone today's date and add i days
         const currDate = new Date(today);
         currDate.setDate(currDate.getDate() + i);
 
-        // Set end‐of‐day boundary at 9:00 PM of currDate
         const endTime = new Date(currDate);
         endTime.setHours(21, 0, 0, 0);
 
-        // If it's “the same day as today”, start from the next half‐hour (or now rounded to next 30 minutes)
         if (currDate.toDateString() === today.toDateString()) {
           const minutes = today.getMinutes();
           if (minutes < 30) {
@@ -53,45 +50,37 @@ const Appointment = () => {
             currDate.setHours(today.getHours() + 1, 0, 0, 0);
           }
         } else {
-          // For future days, start at 10:00 AM
           currDate.setHours(10, 0, 0, 0);
         }
 
-        // Build half‐hour slots from “currDate” until 9:00 PM
         while (currDate < endTime) {
           const timestr = currDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           allSlots.push({
-            date: new Date(currDate), // capture a copy
+            date: new Date(currDate),
             time: timestr,
           });
-          // Move forward by 30 minutes
           currDate.setMinutes(currDate.getMinutes() + 30);
         }
       }
-
       return allSlots;
     };
 
-    const slots = generateSlots();
-    setDocSlots(slots);
+    setDocSlots(generateSlots());
   }, [docInfo]);
 
-  // 3. Whenever `docSlots` changes, group them by date-string (YYYY-MM-DD)
+  // Group slots by date
   useEffect(() => {
     if (docSlots.length === 0) {
       setGroupedSlots({});
       return;
     }
-
     const groups = {};
     docSlots.forEach((slot) => {
       const year = slot.date.getFullYear();
       const month = (slot.date.getMonth() + 1).toString().padStart(2, '0');
       const day = slot.date.getDate().toString().padStart(2, '0');
-      const key = `${year}-${month}-${day}`; // e.g. "2025-06-05"
-
+      const key = `${year}-${month}-${day}`;
       if (!groups[key]) {
-        // e.g. "Thursday, Jun 5"
         const dayLabel = daysofweek[slot.date.getDay()];
         const monthName = slot.date.toLocaleString('default', { month: 'short' });
         const dateLabel = `${dayLabel}, ${monthName} ${slot.date.getDate()}`;
@@ -99,164 +88,159 @@ const Appointment = () => {
       }
       groups[key].slots.push(slot);
     });
-
     setGroupedSlots(groups);
-    //console.log(groupedSlots);
   }, [docSlots]);
 
-  if (!docInfo) {
-    // You could show a spinner/loader here
-    
-    return null;
-  }
+  if (!docInfo) return (
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-green-400"></div>
+    </div>
+  );
 
   const bookAppointment = async () => {
-       if(!selectedSlot){
-        alert("Please select a slot");
-        return;
-       }
-       if(!token){
-        toast.error("Please login to book an appointment");
-        return navigate("/login");
- 
-       }
-       try{
-        const date=selectedSlot.date;
-        const month=date.getMonth()+1;
-        const day=date.getDate();
-        const year=date.getFullYear();
-        const slotDate=day+"_"+month+"_"+year;
-        const userId=localStorage.getItem("userId");
-        const {data}=await axios.post(`${backendurl}/api/user/book-appointment`,{
-         userId, docId,slotDate,slotTime:selectedSlot.time
-        },{
-          headers:{Authorization:`Bearer ${token}`}
-        })
-        console.log(data);
-        if(data.success){
-          toast.success("Appointment Booked Successfully");
-          navigate("/my-appointments");
-        }
-        else{
-          toast.error(data.message);
-        }
-       }
-       catch(err){
-        console.log(err);
-       // console.log(err);
-        toast.error("ohh noo, something went wrong");
-       }
-  }
+    if (!selectedSlot) {
+      toast.info("Please select a slot", { position: "top-center", theme: "colored" });
+      return;
+    }
+    if (!token) {
+      toast.warning("Please login to book an appointment", { position: "top-center", theme: "colored" });
+      return navigate("/login");
+    }
+    try {
+      const date = selectedSlot.date;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const year = date.getFullYear();
+      const slotDate = day + "_" + month + "_" + year;
+      const userId = localStorage.getItem("userId");
+      const { data } = await axios.post(`${backendurl}/api/user/book-appointment`, {
+        userId, docId, slotDate, slotTime: selectedSlot.time
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (data.success) {
+        toast.success("Appointment Booked Successfully!", { position: "top-center", theme: "colored", autoClose: 2000 });
+        navigate("/my-appointments");
+      } else {
+        toast.error(data.message, { position: "top-center", theme: "colored" });
+      }
+    } catch (err) {
+      toast.error("Oh no, something went wrong!", { position: "top-center", theme: "colored" });
+    }
+  };
 
- 
+  // Custom theme colors
+  const theme = {
+    primary: "bg-gradient-to-br from-green-100 via-blue-100 to-white",
+    card: "bg-white border border-blue-100 shadow-lg rounded-2xl",
+    accent: "text-green-700",
+    accentBg: "bg-green-100",
+    button: "bg-gradient-to-r from-green-400 to-blue-400 hover:from-green-500 hover:to-blue-500 text-white",
+    slot: "bg-blue-50 border-blue-200 text-blue-900 hover:bg-green-100 hover:text-green-900",
+    slotSelected: "bg-gradient-to-r from-green-400 to-blue-400 text-white border-green-500",
+    slotDisabled: "bg-gray-200 text-gray-400 cursor-not-allowed",
+    label: "text-blue-700 font-semibold",
+    section: "mb-10",
+  };
+
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12 mt-20">
-      {/* --- Doctor Info Section --- */}
-      <div className="bg-white border border-gray-300 rounded-lg p-6 flex flex-col md:flex-row items-center gap-6 shadow-sm">
+    <div className={`min-h-screen ${theme.primary} py-10 px-2 flex flex-col items-center`}>
+      {/* Doctor Info */}
+      <div className={`${theme.card} w-full max-w-4xl flex flex-col md:flex-row items-center md:items-start gap-8 p-8 mt-10`}>
         <img
           src={docInfo.image}
           alt={docInfo.name}
-          className="w-48 h-48 rounded-full object-cover object-top shadow-md border-4 border-blue-100"
+          className="w-40 h-40 rounded-full object-cover border-4 border-green-200 shadow-lg mx-auto md:mx-0"
         />
-        <div className="flex-1 text-center md:text-left">
-          
-          <h1 className="text-3xl font-bold text-gray-800">{docInfo.fullName}</h1>
-          <p className="text-blue-600 text-lg font-medium">{docInfo.speciality}</p>
-          <p className="text-gray-600 mt-2">
-            {docInfo.degree} • {docInfo.experience}
-          </p>
-          <p className="text-gray-500 mt-1">
-            ₹{docInfo.fees} Consultation Fee
-          </p>
-          <div className="mt-4 text-sm text-gray-700">
-            <p>{docInfo.address.line1}</p>
-            <p>{docInfo.address.line2}</p>
+        <div className="flex-1 flex flex-col items-center md:items-start">
+          <h1 className="text-3xl md:text-4xl font-bold text-blue-900 mb-1">{docInfo.fullName}</h1>
+          <div className="flex items-center gap-2 text-lg mb-2">
+            <FaUserMd className="text-green-500" />
+            <span className="text-green-700 font-medium">{docInfo.speciality}</span>
           </div>
-        </div>
-        <div className='max-w-sm font-medium text-blue-950'>
-          {docInfo.about}
+          <div className="flex items-center gap-2 text-gray-700 mb-1">
+            <FaGraduationCap className="text-blue-400" />
+            <span>{docInfo.degree} • {docInfo.experience}</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-700 mb-1">
+            <FaMoneyBillWave className="text-green-400" />
+            <span className="font-semibold text-blue-700">₹{docInfo.fees} Consultation Fee</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-600 mt-2">
+            <FaMapMarkerAlt className="text-blue-400" />
+            <span>
+              {docInfo.address}
+            </span>
+          </div>
+          <div className="mt-4 text-sm text-gray-700 italic text-center md:text-left">
+            {docInfo.about}
+          </div>
         </div>
       </div>
 
-      {/* --- Slots Section --- */}
-      <div className="mt-10 bg-white border border-gray-300 rounded-lg p-6 shadow-sm">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          Available Slots
-        </h2>
-
+      {/* Slots Section */}
+      <div className={`${theme.card} w-full max-w-4xl mt-8 p-8 ${theme.section}`}>
+        <h2 className="text-2xl font-bold text-green-700 mb-6 text-center">Available Slots</h2>
         {Object.keys(groupedSlots).length === 0 ? (
-          <p className="text-gray-500">No slots available.</p>
+          <p className="text-gray-500 text-center">No slots available.</p>
         ) : (
-          Object.entries(groupedSlots).map(([dateKey, info]) => (
-            <div key={dateKey} className="mb-6">
-              {/* Day Label */}
-              <h3 className="text-xl font-medium text-gray-700 mb-2">
-                {info.label}
-              </h3>
-              {/* Time Slots as grid */}
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                {info.slots.map((slotObj, idx) => {
-                  const slotIdentifier = `${dateKey}-${slotObj.time}`;
-                  const isSelected =
-                    selectedSlot &&
-                    selectedSlot.date.toDateString() ===
-                      slotObj.date.toDateString() &&
-                    selectedSlot.time === slotObj.time;
-
-                  return (
-                    <button
-                      key={slotIdentifier}
-                      onClick={() =>
-                        setSelectedSlot({
-                          date: new Date(slotObj.date),
-                          time: slotObj.time,
-                        })
-                      }
-                      className={`
-                        px-3 py-2 text-sm rounded-lg border 
-                        ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-blue-50'
+          <div className="flex flex-col gap-8">
+            {Object.entries(groupedSlots).map(([dateKey, info]) => (
+              <div key={dateKey}>
+                <h3 className={`mb-3 ${theme.label} text-lg text-center`}>{info.label}</h3>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {info.slots.map((slotObj, idx) => {
+                    const slotIdentifier = `${dateKey}-${slotObj.time}`;
+                    const isSelected =
+                      selectedSlot &&
+                      selectedSlot.date.toDateString() === slotObj.date.toDateString() &&
+                      selectedSlot.time === slotObj.time;
+                    return (
+                      <button
+                        key={slotIdentifier}
+                        onClick={() =>
+                          setSelectedSlot({
+                            date: new Date(slotObj.date),
+                            time: slotObj.time,
+                          })
                         }
-                        focus:outline-none
-                      `}
-                    >
-                      {slotObj.time}
-                    </button>
-                  );
-                })}
+                        className={`
+                          px-4 py-2 rounded-xl border font-semibold transition-all duration-150
+                          ${isSelected ? theme.slotSelected : theme.slot}
+                          focus:outline-none
+                        `}
+                      >
+                        {slotObj.time}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
-      {/* --- Selected Slot & Confirmation --- */}
+      {/* Selected Slot & Confirmation */}
       {selectedSlot && (
-        <div className="mt-8 bg-white border border-gray-300 rounded-lg p-6 shadow-sm">
-          <h4 className="text-lg font-medium text-gray-800 mb-2">
-            Selected Appointment:
-          </h4>
-          <p className="text-gray-700">
-            <span className="font-semibold">Date:</span>{' '}
-            {selectedSlot.date.toLocaleDateString([], {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </p>
-          <p className="text-gray-700">
-            <span className="font-semibold">Time:</span> {selectedSlot.time}
-          </p>
+        <div className={`${theme.card} w-full max-w-2xl mt-6 p-6 flex flex-col items-center`}>
+          <h4 className="text-lg font-bold text-blue-800 mb-2">Selected Appointment</h4>
+          <div className="flex flex-col md:flex-row gap-4 items-center mb-2">
+            <span className="text-green-700 font-semibold">
+              {selectedSlot.date.toLocaleDateString([], {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+            <span className="text-blue-700 font-semibold">
+              {selectedSlot.time}
+            </span>
+          </div>
           <button
-            className="mt-4 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none transition"
-            onClick={() => {
-              // Replace this stub with your “confirm appointment” logic (API call, navigation, etc.)
-              console.log('Confirming appointment...');
-              bookAppointment();
-            }}
+            className={`mt-4 px-8 py-3 rounded-xl font-bold shadow-md ${theme.button} transition-all duration-150`}
+            onClick={bookAppointment}
           >
             Confirm Appointment
           </button>

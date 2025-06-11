@@ -5,6 +5,9 @@ import { upload } from '../middleware/multer.js';
 import { bookAppointment } from '../controllers/userController.js';
 import { listAppointment } from '../controllers/userController.js';
 import { cancelAppointment } from '../controllers/userController.js';
+import { createStripeSession } from '../controllers/userController.js';
+import { verifyStripe } from '../controllers/userController.js';
+import { predict } from '../controllers/userController.js';
 
 const userRouter = express.Router();
 
@@ -16,4 +19,8 @@ userRouter.post('/update-profile', upload.single('image'), userAuth, updateProfi
 userRouter.post('/book-appointment', userAuth, bookAppointment);
 userRouter.get('/appointments', userAuth, listAppointment);
 userRouter.post('/cancel-appointment', userAuth, cancelAppointment);
+userRouter.post("/create-stripe-session", userAuth, createStripeSession);
+userRouter.post("/verifystripe", verifyStripe); // No auth needed here
+userRouter.post("/predict", userAuth, predict);
+
 export default userRouter;

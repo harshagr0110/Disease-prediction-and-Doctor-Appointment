@@ -6,30 +6,31 @@ const Banner = () => {
     const navigate = useNavigate();
 
     return (
-        <div className="rounded-2xl shadow-lg my-8 overflow-hidden items-center flex justify-center ">
-            <div className="flex h-full max-w-8/12 border-b-black bg-white border border-gray-400">
+        <div className="flex justify-center items-center my-8 px-4">
+            <div className="flex flex-col md:flex-row w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden bg-gradient-to-r from-blue-400 via-green-200 to-green-400 border border-blue-300">
                 {/* Left: Text Content */}
-                <div className="w-full md:w-11/12 flex flex-col justify-center px-10 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-600 text-white">
-                    <h1 className="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">
-                        We Provide the <span className="text-yellow-300">Best Doctors</span><br /> For Your Health
+                <div className="flex flex-col justify-center items-center md:items-start w-full md:w-1/2 p-8 bg-gradient-to-br from-blue-700 via-blue-500 to-green-400">
+                    <h1 className="text-3xl md:text-5xl font-extrabold mb-4 leading-tight text-white drop-shadow-lg text-center md:text-left">
+                        Your <span className="text-green-200">Health</span>,<br />
+                        Our <span className="text-blue-200">Priority</span>
                     </h1>
-                    <p className="text-md md:text-lg mb-6 text-gray-100 max-w-md">
-                        Book appointments with top-rated specialists and get the care you deserve.
+                    <p className="text-md md:text-lg mb-6 text-blue-50 max-w-md text-center md:text-left">
+                        Book appointments with top-rated doctors and get the care you deserve. Trusted, compassionate, and always here for you.
                     </p>
                     <button
                         onClick={() => navigate('/login')}
-                        className="bg-yellow-400 text-blue-900 hover:bg-yellow-300 transition px-6 py-2 rounded-md font-semibold shadow-md w-fit"
+                        className="bg-blue-500 hover:bg-blue-400 text-white transition px-8 py-3 rounded-lg font-bold shadow-lg mt-2"
                     >
                         Create Account
                     </button>
                 </div>
 
                 {/* Right: Full Image */}
-                <div className="hidden md:block md:w-1/2 h-full">
+                <div className="flex items-center justify-center w-full md:w-1/2 bg-white">
                     <img
                         src={assets.appointment_img}
-                        alt="Banner"
-                        className="w-full h-full object-cover object-center"
+                        alt="Doctor Appointment"
+                        className="w-full h-64 md:h-full object-cover object-center rounded-b-3xl md:rounded-b-none md:rounded-r-3xl shadow-lg"
                     />
                 </div>
             </div>

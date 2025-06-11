@@ -5,6 +5,10 @@ import jwt from "jsonwebtoken";
 import { v2 as cloudinary } from "cloudinary";
 import doctormodel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import Stripe from "stripe";
+import axios from "axios";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 
 
@@ -242,4 +246,203 @@ export const cancelAppointment=async(req,res)=>{
     return res.status(500).json({ success: false, message: "Server error while cancelling appointment" });
   }
 }
-   
+
+
+export const createStripeSession = async (req, res) => {
+  try {
+    const { appointmentId } = req.body;
+    const userId = req.user.id;
+
+    // Validate appointment
+    const appointment = await appointmentModel.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Appointment not found" 
+      });
+    }
+
+    if (appointment.userId.toString() !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Unauthorized access" 
+      });
+    }
+
+    if (appointment.paymentStatus === 'paid') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Payment already completed" 
+      });
+    }
+
+    if (appointment.cancelled) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Cannot pay for cancelled appointment" 
+      });
+    }
+
+    // Get doctor details
+    const doctor = await doctormodel.findById(appointment.docId);
+    if (!doctor) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Doctor not found" 
+      });
+    }
+
+    const origin = req.headers.origin || process.env.FRONTEND_URL;
+
+    // Create Stripe session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "inr",
+            product_data: {
+              name: `Appointment with Dr. ${doctor.fullName}`,
+              description: `Appointment on ${appointment.slotDate} at ${appointment.slotTime}`
+            },
+            unit_amount: Math.round(appointment.amount * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      metadata: {
+        appointmentId: appointmentId.toString(),
+        userId: userId.toString()
+      },
+      success_url: `${origin}/payment-success?success=true&appointmentId=${appointmentId}`,
+      cancel_url: `${origin}/payment-success?success=false&appointmentId=${appointmentId}`,
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      url: session.url 
+    });
+
+  } catch (error) {
+    console.error("Stripe Session Error:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error creating payment session",
+      error: error.message 
+    });
+  }
+};
+
+export const verifyStripe = async (req, res) => {
+  try {
+    const { appointmentId, success } = req.body;
+
+    // Validate input
+    if (!appointmentId || typeof success !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid parameters" 
+      });
+    }
+
+    // Find and update appointment
+    const appointment = await appointmentModel.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Appointment not found" 
+      });
+    }
+
+    if (success === "true") {
+      appointment.paymentStatus = 'paid';
+      await appointment.save();
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Payment confirmed successfully" 
+      });
+    } else {
+      return res.status(200).json({ 
+        success: false, 
+        message: "Payment not completed" 
+      });
+    }
+  } catch (error) {
+    console.error("Payment Verification Error:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error verifying payment",
+      error: error.message 
+    });
+  }
+};
+
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
+const GEMINI_MODEL = "gemini-2.0-flash"; 
+
+// --- Main Prediction Endpoint ---
+export const predict= async (req, res) => {
+    // Validate API Key is available
+    if (!GEMINI_API_KEY) {
+        console.error('GEMINI_API_KEY is not set in environment variables.');
+        return res.status(500).json({ error: 'Server configuration error: API Key missing.' });
+    }
+
+    const { symptoms, images, specialitiesList } = req.body;
+
+    if (!symptoms && (!images || images.length === 0)) {
+        return res.status(400).json({ error: 'Please provide symptoms or images.' });
+    }
+
+    try {
+        // --- Prepare parts for Gemini API ---
+        let diseaseParts = [{ text: `Based on these symptoms: "${symptoms}" ${images && images.length > 0 ? "and the provided images," : ""}, provide a brief description of the possible condition, its causes, prevention, and treatment. Keep it concise, under 200 words. Format with **bold** section headers.` }];
+        if (images && images.length > 0) {
+            diseaseParts.push(...images); // Add inlineData objects for images
+        }
+
+        let specialistParts = [{ text: `Based on these symptoms: "${symptoms}" ${images && images.length > 0 ? "and the provided images," : ""}, which medical specialist should the patient see? Respond with JUST the specialty name from this exact list: ${specialitiesList.join(', ')}. Provide only the specialty name, one word if possible, or the most common short form.` }];
+        if (images && images.length > 0) {
+            specialistParts.push(...images); // Add inlineData objects for images
+        }
+
+        // --- First Gemini API Call: Disease Info ---
+        const diseasePayload = { contents: [{ role: "user", parts: diseaseParts }] };
+        const diseaseResponse = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+            diseasePayload,
+            { headers: { "Content-Type": "application/json" } }
+        );
+        const diseaseText = diseaseResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!diseaseText) {
+            throw new Error("No disease information received from Gemini API.");
+        }
+
+        // --- Second Gemini API Call: Specialist Info ---
+        const specialistPayload = { contents: [{ role: "user", parts: specialistParts }] };
+        const specialistResponse = await axios.post(
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+            specialistPayload,
+            { headers: { "Content-Type": "application/json" } }
+        );
+        const specialistText = specialistResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!specialistText) {
+            throw new Error("No specialist suggestion received from Gemini API.");
+        }
+
+        // --- Send combined response back to frontend ---
+        res.json({
+            diseaseInfo: diseaseText,
+            specialistResult: specialistText
+        });
+
+    } catch (error) {
+        console.error('Error calling Gemini API from backend:', error.response ? error.response.data : error.message);
+        const status = error.response ? error.response.status : 500;
+        const errorMessage = error.response ? error.response.data.error?.message || error.response.data?.message : 'Internal Server Error';
+        res.status(status).json({ error: errorMessage });
+    }
+};

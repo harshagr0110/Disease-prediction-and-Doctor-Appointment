@@ -2,7 +2,9 @@ import validator from 'validator';
 import bcrypt from 'bcrypt';
 import { v2 as cloudinary } from 'cloudinary';
 import doctormodel from '../models/doctorModel.js';
-import jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken'; 
+import User from '../models/userModel.js';
+import appointmentModel from '../models/appointmentModel.js';
 
 const addDoctor = async (req, res) => {
 
@@ -95,7 +97,7 @@ const adminLogin = async (req, res) => {
       email === process.env.ADMIN_EMAIL &&
       password === process.env.ADMIN_PASSWORD
     ) {
-      const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '4h' });
+      const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '7d' });
       return res.json({ success: true, message: 'Admin logged in', token });
     } else {
       return res.status(400).json({ success: false, message: 'Invalid credentials' });
@@ -110,6 +112,17 @@ const allDoctors=async(req,res)=>{
   try {
     const doctors=await doctormodel.find({}).select('-password');
     return res.status(200).json({success:true,doctors});
+  } catch (error) {
+    return res.status(500).json({success:false,message:error.message});
+  }
+}
+
+export const dashboarddata=async(req,res)=>{
+  try {
+    const doctors=await doctormodel.find({}).select('-password');
+    const users=await User.find({}).select('-password');
+    const appointments=await appointmentModel.find({}).select('-password');
+    return res.status(200).json({success:true,doctors,users,appointments});
   } catch (error) {
     return res.status(500).json({success:false,message:error.message});
   }
