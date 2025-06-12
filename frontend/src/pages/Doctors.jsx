@@ -10,12 +10,12 @@ import 'react-toastify/dist/ReactToastify.css';
 // Theme colors (minimal, formal)
 const THEME = {
   primary: 'bg-gray-50',
-  accent: 'bg-gray-700 text-white',
+  accent: 'bg-blue-600 text-white',
   accentHover: 'hover:bg-gray-800',
-  border: 'border-gray-200',
+  border: 'border-blue-200',
   textPrimary: 'text-gray-800',
   textAccent: 'text-gray-600',
-  card: 'bg-white shadow border border-gray-200',
+  card: 'bg-white shadow border border-blue-300',
   cardHover: 'hover:shadow-lg hover:border-gray-300',
 };
 

@@ -105,7 +105,8 @@ const DiseasePrediction = () => {
     }
   };
   const handleclick=async()=>{
-        navigate('/doctors/'+selectedDoctor);
+        navigate('/doctors/'+specialistResult);
+        //console.log(selectedDoctor);
     }
   // Handles API submission
   const handleSubmit = async () => {
